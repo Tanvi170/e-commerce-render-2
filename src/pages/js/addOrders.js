@@ -19,8 +19,8 @@ const AddOrder = () => {
       setLoading(true);
       setError('');
       try {
-        const customerRes = await axios.get(`${baseUrl}/api/orders/customers_orders?storeId=${storeId}`);
-        const productRes = await axios.get(`${baseUrl}/api/orders/products?storeId=${storeId}`);
+        const customerRes = await axios.get(`${baseUrl}/api/customers?storeId=${storeId}`);
+        const productRes = await axios.get(`${baseUrl}/api/products?storeId=${storeId}`);
 
         setCustomers(customerRes.data);
         setProducts(productRes.data);
@@ -60,7 +60,6 @@ const AddOrder = () => {
       setSelectedCustomer('');
       setSelectedProduct('');
       setQuantity('');
-      setError('');
     } catch (err) {
       console.error("Order creation failed:", err);
       setError('Failed to place the order.');
