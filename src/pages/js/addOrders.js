@@ -1,130 +1,193 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import '../css/add-order.css';
 
 const AddOrder = () => {
-  const baseUrl = process.env.REACT_APP_BASE_URL;
-  const storeId = localStorage.getItem("storeId");
-
+  const [customerId, setCustomerId] = useState('');
+  const [status, setStatus] = useState('Pending');
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
-  const [selectedCustomer, setSelectedCustomer] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [price, setPrice] = useState('');
+  const [items, setItems] = useState([]);
+  const navigate = useNavigate();
+
+  const storeId = localStorage.getItem('storeId');
+  const token = localStorage.getItem('token');
+  const baseUrl = process.env.REACT_APP_BASE_URL;
 
   useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const customerRes = await axios.get(`${baseUrl}/api/customers?storeId=${storeId}`);
-        const productRes = await axios.get(`${baseUrl}/api/products?storeId=${storeId}`);
+    if (!storeId) return alert('Store ID missing');
 
-        setCustomers(customerRes.data);
-        setProducts(productRes.data);
+    const fetchCustomers = async () => {
+      try {
+        const res = await axios.get(`${baseUrl}/api/orders/customers_orders`, {
+          params: { storeId }
+        });
+        setCustomers(res.data);
       } catch (err) {
-        console.error("Error fetching data:", err);
-        setError("Failed to load customers or products.");
-      } finally {
-        setLoading(false);
+        console.error('❌ Failed to fetch customers:', err);
       }
     };
 
-    if (storeId) {
-      fetchData();
-    } else {
-      setError("Store ID not found.");
-      setLoading(false);
-    }
+    const fetchProducts = async () => {
+      try {
+        const res = await axios.get(`${baseUrl}/api/orders/products`, {
+          params: { storeId }
+        });
+        setProducts(res.data);
+      } catch (err) {
+        console.error('❌ Failed to fetch products:', err);
+      }
+    };
+
+    fetchCustomers();
+    fetchProducts();
   }, [storeId, baseUrl]);
+
+  useEffect(() => {
+    const product = products.find(p => p.product_id === Number(selectedProductId));
+    if (product) {
+      setPrice(product.price);
+    } else {
+      setPrice('');
+    }
+  }, [selectedProductId, products]);
+
+  const addItem = () => {
+    if (!selectedProductId || !quantity || !price) {
+      alert('Please fill product and quantity');
+      return;
+    }
+
+    const product = products.find(p => p.product_id === Number(selectedProductId));
+    const item = {
+      product_id: Number(selectedProductId),
+      quantity: Number(quantity),
+      price: Number(price),
+      product_name: product?.product_name || `Product ${selectedProductId}`
+    };
+
+    setItems(prev => [...prev, item]);
+    setSelectedProductId('');
+    setQuantity('');
+    setPrice('');
+  };
+
+  const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!selectedCustomer || !selectedProduct || !quantity) {
-      setError('All fields are required.');
-      return;
-    }
+    if (!storeId) return alert('Store ID not found');
+    if (!customerId) return alert('Please select a customer');
+    if (items.length === 0) return alert('Please add at least one product');
+
+    const payload = {
+      customer_id: Number(customerId),
+      total_amount: totalAmount,
+      status,
+      store_id: Number(storeId),
+      items: items.map(({ product_id, quantity }) => ({
+        product_id,
+        quantity
+      }))
+    };
 
     try {
-      const res = await axios.post(`${baseUrl}/api/orders`, {
-        storeId,
-        customerId: selectedCustomer,
-        productId: selectedProduct,
-        quantity: parseInt(quantity)
+      const res = await axios.post(`${baseUrl}/api/orders`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
       });
 
-      alert('Order placed successfully!');
-      setSelectedCustomer('');
-      setSelectedProduct('');
-      setQuantity('');
+      const orderId = res.data.orderId;
+
+      if (status === 'Delivered') {
+        await axios.put(`${baseUrl}/api/orders/${orderId}/status`, {
+          status: 'Delivered',
+          storeId: Number(storeId)
+        });
+        console.log('✅ Sale record inserted for Delivered order');
+      }
+
+      alert('✅ Order created');
+      localStorage.setItem('redirectToOrders', 'true');
+      navigate('/AdminOverview');
     } catch (err) {
-      console.error("Order creation failed:", err);
-      setError('Failed to place the order.');
+      console.error('❌ Order submit failed:', err);
+      alert('Error adding order: ' + (err.response?.data?.error || err.message));
     }
   };
 
   return (
-    <div className="add-order-container">
-      <h2 className="form-title">Add New Order</h2>
-
-      {loading ? (
-        <p>Loading data...</p>
-      ) : error ? (
-        <p className="error-message">{error}</p>
-      ) : (
-        <form className="add-order-form" onSubmit={handleSubmit}>
-          <div className="form-group">
+    <div className="add-order-page">
+      <div className="order-container">
+        <div className="add-order-card">
+          <h1>Add New Order</h1>
+          <form onSubmit={handleSubmit} className="order-form">
             <label>Customer:</label>
-            <select
-              value={selectedCustomer}
-              onChange={(e) => setSelectedCustomer(e.target.value)}
-              required
-            >
-              <option value="">Select Customer</option>
-              {customers.map((cust) => (
-                <option key={cust.customer_id} value={cust.customer_id}>
-                  {cust.customer_name}
+            <select value={customerId} onChange={e => setCustomerId(e.target.value)} required>
+              <option value="">-- Select Customer --</option>
+              {customers.map(c => (
+                <option key={c.customer_id} value={c.customer_id}>
+                  {c.customer_name} (ID: {c.customer_id})
                 </option>
               ))}
             </select>
-          </div>
 
-          <div className="form-group">
+            <label>Status:</label>
+            <select value={status} onChange={e => setStatus(e.target.value)}>
+              <option value="Pending">Pending</option>
+              <option value="Processing">Processing</option>
+              <option value="Shipped">Shipped</option>
+              <option value="Delivered">Delivered</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+
+            <hr />
+            <h3>Add Products</h3>
+
             <label>Product:</label>
-            <select
-              value={selectedProduct}
-              onChange={(e) => setSelectedProduct(e.target.value)}
-              required
-            >
-              <option value="">Select Product</option>
-              {products.map((prod) => (
-                <option key={prod.product_id} value={prod.product_id}>
-                  {prod.product_name}
+            <select value={selectedProductId} onChange={e => setSelectedProductId(e.target.value)}>
+              <option value="">-- Select Product --</option>
+              {products.map(p => (
+                <option key={p.product_id} value={p.product_id}>
+                  {p.product_name} (ID: {p.product_id})
                 </option>
               ))}
             </select>
-          </div>
 
-          <div className="form-group">
             <label>Quantity:</label>
-            <input
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder="Enter quantity"
-              min="1"
-              required
-            />
-          </div>
+            <input type="number" min="1" value={quantity} onChange={e => setQuantity(e.target.value)} />
 
-          <button type="submit" className="submit-btn">
-            Place Order
-          </button>
-        </form>
-      )}
+            <label>Price:</label>
+            <input type="number" value={price} readOnly disabled />
+
+            <button type="button" className="add-order-btn" onClick={addItem}>
+              + Add Product
+            </button>
+
+            <hr />
+            <h4>Products Added:</h4>
+            <ul>
+              {items.map((item, index) => (
+                <li key={index}>
+                  {item.product_name} × {item.quantity} @ ₹{item.price} = ₹{item.quantity * item.price}
+                </li>
+              ))}
+            </ul>
+
+            <p><strong>Total:</strong> ₹{totalAmount}</p>
+
+            <button type="submit" className="add-order-btn">Submit Order</button>
+
+            <button type="button" className="add-order-btn cancel-btn" onClick={() => navigate(-1)}>
+              Cancel
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 };
