@@ -19,8 +19,8 @@ const AddOrder = () => {
       setLoading(true);
       setError('');
       try {
-        const customerRes = await axios.get(`${baseUrl}/api/customers?storeId=${storeId}`);
-        const productRes = await axios.get(`${baseUrl}/api/products?storeId=${storeId}`);
+        const customerRes = await axios.get(`${baseUrl}/api/orders/customers_orders?storeId=${storeId}`);
+        const productRes = await axios.get(`${baseUrl}/api/orders/products?storeId=${storeId}`);
 
         setCustomers(customerRes.data);
         setProducts(productRes.data);
@@ -60,6 +60,7 @@ const AddOrder = () => {
       setSelectedCustomer('');
       setSelectedProduct('');
       setQuantity('');
+      setError('');
     } catch (err) {
       console.error("Order creation failed:", err);
       setError('Failed to place the order.');
@@ -85,8 +86,8 @@ const AddOrder = () => {
             >
               <option value="">Select Customer</option>
               {customers.map((cust) => (
-                <option key={cust.customerId} value={cust.customerId}>
-                  {cust.customerName}
+                <option key={cust.customer_id} value={cust.customer_id}>
+                  {cust.customer_name}
                 </option>
               ))}
             </select>
@@ -101,8 +102,8 @@ const AddOrder = () => {
             >
               <option value="">Select Product</option>
               {products.map((prod) => (
-                <option key={prod.productId} value={prod.productId}>
-                  {prod.productName}
+                <option key={prod.product_id} value={prod.product_id}>
+                  {prod.product_name}
                 </option>
               ))}
             </select>
