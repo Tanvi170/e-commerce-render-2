@@ -23,7 +23,7 @@ const AddCustomer = () => {
     try {
       const token = localStorage.getItem('authToken');
       const response = await fetch(
-        `${process.env.REACT_APP_API_BASE_URL}/api/customers/add`,
+        `${process.env.REACT_APP_BASE_URL}/api/customers/add`,
         {
           method: 'POST',
           headers: {

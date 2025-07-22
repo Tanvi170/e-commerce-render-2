@@ -29,7 +29,7 @@ const Addfeedback = () => {
     const fetchProducts = async () => {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_BASE_URL}/api/products`,
+          `${process.env.REACT_APP_BASE_URL}/api/products`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -65,7 +65,7 @@ const Addfeedback = () => {
       const review_date = new Date().toISOString().slice(0, 10);
 
       await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/api/feedback/add`,
+        `${process.env.REACT_APP_BASE_URL}/api/feedback/add`,
         {
           review_date,
           rating,
